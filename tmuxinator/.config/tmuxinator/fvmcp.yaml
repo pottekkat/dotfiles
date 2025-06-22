@@ -1,0 +1,16 @@
+# ~/.config/tmuxinator/fvmcp.yaml
+
+name: fvmcp
+root: ~/Code/freysa-video-mcp/
+
+windows:
+  - editor:
+      layout: main-vertical
+      panes: 
+        - editor:
+          - nvim
+  - terminal:
+      layout: main-vertical
+      panes:
+        - terminal:
+          - ls
