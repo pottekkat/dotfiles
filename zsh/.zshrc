@@ -19,6 +19,11 @@ source $ZSH/oh-my-zsh.sh
 
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+# Setup locale variables
+# For tmux to know that UTF-8 is supported
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+
 # Mainly for tmuxinator
 export EDITOR='nvim'
 
