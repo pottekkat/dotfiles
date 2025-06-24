@@ -74,3 +74,6 @@ alias lt='eza -al --sort=modified' # list by modification time
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# Created by `pipx` on 2025-06-24 05:10:09
+export PATH="$PATH:/home/pottekkat/.local/bin"
