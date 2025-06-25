@@ -796,6 +796,50 @@ require('lazy').setup({
       ---@diagnostic disable-next-line: missing-fields
       require('catppuccin').setup {
         flavor = 'mocha',
+        integrations = {
+          telescope = {
+            enabled = true,
+          },
+          which_key = true,
+          gitsigns = true,
+          neotree = true,
+          native_lsp = {
+            enabled = true,
+            virtual_text = {
+              errors = { 'italic' },
+              hints = { 'italic' },
+              warnings = { 'italic' },
+              information = { 'italic' },
+              ok = { 'italic' },
+            },
+            underlines = {
+              errors = { 'underline' },
+              hints = { 'underline' },
+              warnings = { 'underline' },
+              information = { 'underline' },
+              ok = { 'underline' },
+            },
+            inlay_hints = {
+              background = true,
+            },
+          },
+          mason = true,
+          fidget = true,
+          blink_cmp = {
+            style = 'bordered',
+          },
+          treesitter = true,
+          mini = {
+            enabled = true,
+            indentscope_color = '',
+          },
+          indent_blankline = {
+            enabled = true,
+            scope_color = '',
+            colored_indent_levels = false,
+          },
+          copilot_vim = true,
+        },
       }
       vim.cmd.colorscheme 'catppuccin'
     end,
@@ -855,7 +899,7 @@ require('lazy').setup({
         -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
         --  If you are experiencing weird indenting issues, add the language to
         --  the list of additional_vim_regex_highlighting and disabled languages for indent.
-        additional_vim_regex_highlighting = { 'ruby' },
+        additional_vim_regex_highlighting = false, -- This is to not conflic with Catppuccin
       },
       indent = { enable = true, disable = { 'ruby' } },
     },
