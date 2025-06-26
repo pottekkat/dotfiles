@@ -13,7 +13,7 @@ zstyle ':omz:update' mode reminder  # just remind me to update when it's time
 
 # Standard plugins can be found in $ZSH/plugins/
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
-plugins=(git zsh-syntax-highlighting zsh-autosuggestions)
+plugins=(git zsh-syntax-highlighting zsh-autosuggestions autojump)
 
 source $ZSH/oh-my-zsh.sh
 
