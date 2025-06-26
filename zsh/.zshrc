@@ -75,5 +75,18 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-# Created by `pipx` on 2025-06-24 05:10:09
+# pipx
 export PATH="$PATH:/home/pottekkat/.local/bin"
+
+# Docker aliases
+alias dcu="docker compose up -d"
+alias dcd="docker compose down"
+alias dps="docker ps"
+alias dpsa="docker ps -a"
+
+# Remove all exited containers
+function drmc-fn {
+       docker rm $(docker ps --all -q -f status=exited)
+}
+
+alias drmc=drmc-fn
