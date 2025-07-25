@@ -1,11 +1,16 @@
 [credential "https://github.com"]
 	helper = 
-	helper = !/usr/bin/gh auth git-credential
+	helper = !/opt/homebrew/bin/gh auth git-credential
 [credential "https://gist.github.com"]
 	helper = 
-	helper = !/usr/bin/gh auth git-credential
+	helper = !/opt/homebrew/gh auth git-credential
 [user]
 	email = navendu@apache.org
 	name = Navendu Pottekkat
+	signingkey = DE0F662B8EBBDAB4
 [push]
 	autoSetupRemote = true
+[commit]
+	gpgsign = true
+[tag]
+	gpgSign = true

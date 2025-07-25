@@ -29,14 +29,14 @@ export EDITOR='nvim'
 
 alias tx='tmuxinator'
 
-export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
+# export PATH="$PATH:/opt/nvim-linux-x86_64/bin"  # Linux-specific path, nvim available via Homebrew on macOS
 
 # Rubygems
 
-export PATH="$PATH:/home/pottekkat/.local/share/gem/ruby/3.2.0/bin"
+export PATH="$PATH:$HOME/.local/share/gem/ruby/3.2.0/bin"
 
 # Go
-export PATH=$PATH:/usr/local/go/bin:/home/pottekkat/go/bin
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 
 # Hugo Version Manager: override path to the hugo executable.
 hugo() {
@@ -61,7 +61,7 @@ hugo() {
   "${hugo_bin}" "$@"
 }
 
-export PATH=$PATH:/home/pottekkat/.cache/hvm/default
+export PATH=$PATH:$HOME/.cache/hvm/default
 
 # Use eza instead of ls
 alias ls='eza'
@@ -76,7 +76,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # pipx
-export PATH="$PATH:/home/pottekkat/.local/bin"
+export PATH="$PATH:$HOME/.local/bin"
 
 # Docker aliases
 alias dcu="docker compose up -d"
@@ -90,3 +90,17 @@ function drmc-fn {
 }
 
 alias drmc=drmc-fn
+
+# pnpm
+export PNPM_HOME="/Users/pottekkat/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+export PATH="/opt/homebrew/opt/sqlite/bin:$PATH"
+
+
+. "$HOME/Library/Application Support/enchanted/bin/env"
+export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"
