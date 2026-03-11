@@ -6,6 +6,6 @@ stow neofetch
 stow nvim
 stow p10k
 stow ssh
-stow tmux --ignore='\.claude'
+stow tmux
 stow tmuxinator
 stow zsh
