@@ -1,0 +1,19 @@
+# /Users/pottekkat/.config/tmuxinator/a6.yml
+
+name: a6
+root: ~/Git/a6/
+
+windows:
+  - editor:
+      layout: main-vertical
+      name: editor
+      panes:
+        - editor:
+            - nvim
+  - test:
+      layout: main-horizontal
+      panes:
+        - preview:
+            - go run main.go
+        - logs:
+            - tail -f messages.log

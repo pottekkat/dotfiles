@@ -1,0 +1,17 @@
+# /Users/pottekkat/.config/tmuxinator/mcp-go.yml
+
+name: mcp-go
+root: ~/Git/mcp-go/
+
+windows:
+  - editor:
+      name: editor
+      panes:
+        - editor:
+            - nvim ./README.md
+  - terminal:
+      name: terminal
+      layout: tiled
+      panes:
+        - terminal:
+            - ls

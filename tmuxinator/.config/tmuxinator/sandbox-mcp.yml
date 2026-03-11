@@ -1,0 +1,23 @@
+# /Users/pottekkat/.config/tmuxinator/sandbox-mcp.yml
+
+name: sandbox-mcp
+root: ~/Git/sandbox-mcp/
+
+windows:
+  - editor:
+      name: editor
+      panes:
+        - editor:
+            - nvim
+  - terminal:
+      name: terminal
+      layout: tiled
+      panes:
+        - logs:
+            - tail -n 20 -F ~/Library/Logs/Claude/mcp*.log
+        - terminal:
+            - ls
+        - mcpServers:
+            - nvim ~/Library/Application\ Support/Claude/claude_desktop_config.json
+        - inspector:
+            - npx @modelcontextprotocol/inspector /Users/pottekkat/go/bin/sandbox-mcp --stdio
