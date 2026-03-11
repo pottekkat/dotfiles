@@ -15,6 +15,14 @@ zstyle ':omz:update' mode reminder  # just remind me to update when it's time
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 plugins=(git zsh-syntax-highlighting zsh-autosuggestions autojump)
 
+# Cache compinit - only regenerate once a day
+autoload -Uz compinit
+if [[ -n ${ZDOTDIR:-$HOME}/.zcompdump(#qN.mh+24) ]]; then
+  compinit
+else
+  compinit -C
+fi
+
 source $ZSH/oh-my-zsh.sh
 
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
@@ -71,9 +79,17 @@ alias ld='eza -lD' # list directories only
 alias lf='eza -lF --color=always | grep -v /' # list files only
 alias lt='eza -al --sort=modified' # list by modification time
 
+# Lazy-load NVM for faster shell startup
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+nvm() {
+  unset -f nvm node npm npx
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+  nvm "$@"
+}
+node() { nvm && node "$@"; }
+npm() { nvm && npm "$@"; }
+npx() { nvm && npx "$@"; }
 
 # pipx
 export PATH="$PATH:$HOME/.local/bin"
@@ -91,6 +107,9 @@ function drmc-fn {
 
 alias drmc=drmc-fn
 
+# Remove stale git index.lock
+alias git-unlock='rm -f .git/index.lock && echo "Removed .git/index.lock"'
+
 # pnpm
 export PNPM_HOME="/Users/pottekkat/Library/pnpm"
 case ":$PATH:" in
@@ -101,6 +120,18 @@ esac
 
 export PATH="/opt/homebrew/opt/sqlite/bin:$PATH"
 
-
-. "$HOME/Library/Application Support/enchanted/bin/env"
+# For Enchanted
+# . "$HOME/Library/Application Support/enchanted/bin/env"
 export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"
+
+. "$HOME/.local/bin/env"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/Users/pottekkat/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/pottekkat/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/Users/pottekkat/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/pottekkat/google-cloud-sdk/completion.zsh.inc'; fi
+
+. "$HOME/.atuin/bin/env"
+
+eval "$(atuin init zsh)"
