@@ -4,6 +4,14 @@
 [theme]
 name = "catppuccin"
 
+# The divider between the sidebar and the panes is drawn in surface_dim
+# (ui/sidebar.rs:974), and catppuccin's surface_dim is #1e1e2e, the same color
+# as the background, so the line is invisible until navigate mode turns it the
+# accent color. surface1 is light enough to see and still dark enough for the
+# few places surface_dim is used as a panel background.
+[theme.custom]
+surface_dim = "#45475a"
+
 # herdr ships with notifications off, so nothing fired until this block existed.
 # "herdr" draws the toast inside the TUI, which is what makes prefix+o work:
 # that key jumps to the pane the toast came from, and only in-app toasts carry
