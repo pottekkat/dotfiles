@@ -1,6 +1,7 @@
 stow atuin
 stow git
 stow gh
+stow herdr
 stow kitty
 stow neofetch
 stow nvim

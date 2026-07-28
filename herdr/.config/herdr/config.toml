@@ -1,0 +1,62 @@
+# herdr config: https://herdr.dev/docs/configuration/
+# Keys not listed here keep herdr's built-in default.
+
+[theme]
+name = "catppuccin"
+
+# herdr ships with notifications off, so nothing fired until this block existed.
+# "herdr" draws the toast inside the TUI, which is what makes prefix+o work:
+# that key jumps to the pane the toast came from, and only in-app toasts carry
+# a pane target. "system" (macOS Notification Center) and "terminal" (OSC
+# escape, the one to use over SSH) send no target, so prefix+o does nothing.
+#
+# Only two transitions notify: an agent going blocked ("needs attention") and
+# an agent finishing work ("finished"). In-app toasts never show for the tab
+# you are already on. They dismiss after 8s when blocked, 5s when finished.
+#
+# delay_seconds is a debounce, not a wait. herdr rechecks the pane when the
+# timer expires and drops the notification if the state changed meanwhile, so a
+# permission prompt you answer within a second stays quiet.
+[ui.toast]
+delivery = "herdr"
+delay_seconds = 1
+
+[ui.toast.herdr]
+position = "bottom-right"
+
+# Sound is independent of the toast delivery above and plays even when delivery
+# is off. The blocked sound is never suppressed, including on the focused tab;
+# the finished sound follows the same active-tab rule as the toast.
+# Per agent: [ui.sound.agents] claude = "off". HERDR_DISABLE_SOUND=1 kills both.
+[ui.sound]
+enabled = true
+
+[keys]
+prefix = "ctrl+b"
+
+# tmux split aliases (tmux: % is side by side, " is stacked)
+split_vertical = ["prefix+v", "prefix+percent"]
+split_horizontal = ["prefix+minus", "prefix+double_quote"]
+
+# vim-style pane navigation without the prefix
+focus_pane_left = ["prefix+h", "ctrl+h"]
+focus_pane_down = ["prefix+j", "ctrl+j"]
+focus_pane_up = ["prefix+k", "ctrl+k"]
+focus_pane_right = ["prefix+l", "ctrl+l"]
+
+# Workspace movement. Binding a key that a default already owns disables that
+# default with no warning, so every action below is one herdr leaves unbound,
+# on a key no default claims. prefix+w (picker) and prefix+g (navigator) still work.
+switch_workspace = "prefix+shift+1..9"
+previous_workspace = "prefix+{"          # { } for workspaces mirrors [ ] for tabs
+next_workspace = "prefix+}"
+focus_agent = "prefix+alt+1..9"
+previous_agent = "prefix+,"
+next_agent = "prefix+."
+last_pane = "prefix+semicolon"           # not prefix+tab: that is cycle_pane_next
+
+# If your shell or editor eats ctrl+hjkl, swap the direct chords for these:
+# focus_pane_left  = ["prefix+h", "ctrl+alt+h"]
+# focus_pane_down  = ["prefix+j", "ctrl+alt+j"]
+# focus_pane_up    = ["prefix+k", "ctrl+alt+k"]
+# focus_pane_right = ["prefix+l", "ctrl+alt+l"]
