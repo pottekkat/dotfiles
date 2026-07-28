@@ -336,6 +336,16 @@ require('lazy').setup({
       vim.api.nvim_create_autocmd('LspAttach', {
         group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
         callback = function(event)
+          -- Detach LSP from non-file buffers (e.g. fugitive://, gitsigns://)
+          local bufname = vim.api.nvim_buf_get_name(event.buf)
+          if bufname:match '^%a+://' then
+            local client_id = event.data.client_id
+            vim.schedule(function()
+              vim.lsp.buf_detach_client(event.buf, client_id)
+            end)
+            return
+          end
+
           local map = function(keys, func, desc, mode)
             mode = mode or 'n'
             vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
