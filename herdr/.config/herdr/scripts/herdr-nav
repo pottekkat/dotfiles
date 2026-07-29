@@ -1,0 +1,44 @@
+#!/bin/sh
+# Move between herdr panes with ctrl+hjkl, the way vim-tmux-navigator moves
+# between tmux panes: check what is running in the focused pane first, and hand
+# the key to it when that program has its own idea of where "left" is.
+#
+# Usage: herdr-nav <left|down|up|right> <herdr key combo>
+# Bound from config.toml as [[keys.command]] type = "shell".
+#
+# herdr has no if-shell predicate the way tmux does. Keybindings are a flat
+# action table, so a plain focus_pane_left binding on ctrl+h would swallow the
+# key before nvim ever saw it. Routing through a script puts the predicate back.
+
+set -eu
+
+dir=$1
+key=$2
+
+pane=${HERDR_ACTIVE_PANE_ID:-}
+herdr=${HERDR_BIN_PATH:-herdr}
+
+# Bound to a key, so a missing pane id means do nothing rather than guess.
+[ -n "$pane" ] || exit 0
+
+# vim-tmux-navigator's process test, applied to argv0 instead of ps comm:
+# view, vim, vi, vimx, nvim, gvim, and the *diff variants, with or without a
+# leading path. `name` is unusable here because it holds the process title,
+# which agents overwrite (Claude Code reports its version string).
+if "$herdr" pane process-info --pane "$pane" 2>/dev/null |
+	grep -oE '"argv0":"[^"]*"' |
+	sed 's/.*"argv0":"//; s/"$//' |
+	grep -qE '(^|/)g?(view|n?vim?x?)(diff)?$'; then
+	exec "$herdr" pane send-keys "$pane" "$key"
+fi
+
+# `pane focus` answers "was there a neighbor" in the same round trip that moves
+# focus, so the common case costs two socket calls instead of three.
+if "$herdr" pane focus --direction "$dir" --pane "$pane" 2>/dev/null |
+	grep -q '"changed":true'; then
+	exit 0
+fi
+
+# No neighbor that way. Give the key back to whatever is running, which is what
+# keeps ctrl+l clearing the screen in a pane that has nothing to its right.
+exec "$herdr" pane send-keys "$pane" "$key"
