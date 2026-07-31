@@ -138,3 +138,22 @@ rows = [
 # `git worktree add <path>` still goes wherever you point it.
 [worktrees]
 directory = "~/Git/worktrees"
+
+[ui]
+show_agent_labels_on_pane_borders = true
+
+# Scrollback across a full server restart, which is what a reboot is. Without
+# this, a restored pane comes back with the right cwd and an empty screen; the
+# layout survives and everything printed into it does not.
+#
+# herdr keeps this off by default because the saved output lands in
+# session-history.json next to session.json, in plaintext, and pane output is
+# prompts, command output, and whatever tokens scrolled past. That file is in
+# ~/.config/herdr, which is not the stowed dotfiles repo, so it stays local.
+#
+# Agent conversations restore separately and are already on: [session]
+# resume_agents_on_restore defaults to true, and the claude integration is
+# installed at v7 against a v6 minimum, so panes come back with their Claude
+# sessions attached whether or not this is set.
+[experimental]
+pane_history = true
