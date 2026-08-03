@@ -35,6 +35,12 @@ export LANG=en_US.UTF-8
 # Mainly for tmuxinator
 export EDITOR='nvim'
 
+# Which terminal pinentry should draw on when gpg asks for the passphrase.
+# Unset, pinentry-curses fails with "Inappropriate ioctl for device" and the
+# commit dies with a signing error that never mentions the real cause. Only
+# bites over SSH; the Mac uses pinentry-mac and never needs this.
+export GPG_TTY=$TTY
+
 alias tx='tmuxinator'
 
 # export PATH="$PATH:/opt/nvim-linux-x86_64/bin"  # Linux-specific path, nvim available via Homebrew on macOS
