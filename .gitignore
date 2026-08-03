@@ -2,3 +2,5 @@
 .claude/
 *.bak
 tmux/.config/tmux/plugins/
+herdr/.config/herdr/sessions/
+herdr/.config/herdr/.plugins.lock
