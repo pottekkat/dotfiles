@@ -1,4 +1,5 @@
 stow atuin
+stow bin
 stow git
 stow gh
 stow herdr

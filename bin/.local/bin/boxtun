@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Forward the box's dev servers to localhost so they open in a Mac browser.
+#
+# The box runs the stack; nothing is exposed to the tailnet because Vite and the
+# Go server bind 127.0.0.1. Forwarding keeps the browser on localhost, which
+# matters: Vite rejects unexpected Host headers, and the Firebase auth config
+# and .env fallbacks are all written for localhost:3000.
+#
+# Uses an SSH control socket rather than a background PID, so stopping is
+# `-O exit` against the socket instead of pkill on a command-line pattern.
+# pkill matches its own shell often enough to be worth avoiding.
+
+set -euo pipefail
+
+HOST=${BOXTUN_HOST:-box}
+SOCK="$HOME/.ssh/boxtun-$HOST.sock"
+
+# 3000 frontend (Vite), 3001 backend GraphQL, 8080 Temporal UI.
+# The worker has no UI of its own; you watch it through Temporal.
+# Override for a subset: BOXTUN_PORTS="3000" boxtun up
+read -r -a PORTS <<<"${BOXTUN_PORTS:-3000 3001 8080}"
+
+running() { ssh -S "$SOCK" -O check "$HOST" >/dev/null 2>&1; }
+
+usage() {
+  cat <<EOF
+usage: boxtun [up|down|status|restart]
+
+  up       open forwards for: ${PORTS[*]}
+  down     close them
+  status   show socket state and which ports answer
+  restart  down then up
+
+env: BOXTUN_HOST (default: box), BOXTUN_PORTS (default: 3000 3001 8080)
+EOF
+}
+
+up() {
+  if running; then
+    echo "already up"
+    return 0
+  fi
+
+  # Pre-flight rather than trusting ExitOnForwardFailure: with -f -M, ssh prints
+  # "bind: Address already in use" but still exits 0, so `up` would report
+  # success over a tunnel that forwards nothing.
+  local p taken=0
+  for p in "${PORTS[@]}"; do
+    if lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; then
+      lsof -nP -iTCP:"$p" -sTCP:LISTEN 2>/dev/null | tail -n +2 |
+        awk -v p="$p" '{print "  " p " already held by " $1 " (pid " $2 ")"}' >&2
+      taken=1
+    fi
+  done
+  if [ "$taken" = 1 ]; then
+    echo "not starting: free the port(s) above, or pick a subset with BOXTUN_PORTS" >&2
+    return 1
+  fi
+
+  local fwd=()
+  for p in "${PORTS[@]}"; do fwd+=(-L "$p:localhost:$p"); done
+
+  ssh -f -N -M -S "$SOCK" -o ExitOnForwardFailure=yes "${fwd[@]}" "$HOST"
+  if running; then
+    echo "up -> ${PORTS[*]}"
+  else
+    echo "failed: tunnel did not come up" >&2
+    return 1
+  fi
+}
+
+down() {
+  if running; then
+    ssh -S "$SOCK" -O exit "$HOST" >/dev/null 2>&1 || true
+    echo "down"
+  else
+    echo "not running"
+  fi
+}
+
+status() {
+  if running; then
+    echo "tunnel: up ($HOST)"
+  else
+    echo "tunnel: down ($HOST)"
+    return 0
+  fi
+  local p code
+  for p in "${PORTS[@]}"; do
+    # curl already writes 000 on a refused connection, and exits non-zero doing
+    # it, so swallow the status rather than appending a second 000.
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://localhost:$p/" 2>/dev/null || true)
+    if [ "$code" = "000" ] || [ -z "$code" ]; then
+      echo "  $p  no answer (service not started on the box?)"
+    else
+      echo "  $p  HTTP $code"
+    fi
+  done
+}
+
+case "${1:-status}" in
+  up | start) up ;;
+  down | stop) down ;;
+  status) status ;;
+  restart)
+    down
+    up
+    ;;
+  -h | --help | help) usage ;;
+  *)
+    echo "unknown command: $1" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
