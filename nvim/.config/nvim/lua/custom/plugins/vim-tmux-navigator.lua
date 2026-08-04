@@ -17,6 +17,26 @@ local directions = {
   l = { wincmd = 'l', tmux = 'TmuxNavigateRight', herdr = 'right' },
 }
 
+-- A remote attach (`herdr --remote box --session box`) puts the server under a
+-- named session, whose socket lives in sessions/<name>/ instead of at the
+-- default path. The bare CLI keeps looking at the default socket and answers
+-- server_not_running, so the pane hop below silently does nothing. Resolve the
+-- session when there is no default server and exactly one candidate; anything
+-- ambiguous falls back to the default rather than guessing.
+local function herdr_cmd()
+  local base = vim.fn.expand '~/.config/herdr'
+  if vim.uv.fs_stat(base .. '/herdr.sock') then
+    return { 'herdr' }
+  end
+
+  local sessions = vim.fn.glob(base .. '/sessions/*/herdr.sock', true, true)
+  if #sessions == 1 then
+    return { 'herdr', '--session', vim.fn.fnamemodify(sessions[1], ':h:t') }
+  end
+
+  return { 'herdr' }
+end
+
 local function navigate(key)
   local dir = directions[key]
 
@@ -36,7 +56,9 @@ local function navigate(key)
 
     local pane = vim.env.HERDR_PANE_ID
     if pane then
-      vim.system { 'herdr', 'pane', 'focus', '--direction', dir.herdr, '--pane', pane }
+      local cmd = herdr_cmd()
+      vim.list_extend(cmd, { 'pane', 'focus', '--direction', dir.herdr, '--pane', pane })
+      vim.system(cmd)
     end
   end
 end

@@ -16,29 +16,57 @@ dir=$1
 key=$2
 
 pane=${HERDR_ACTIVE_PANE_ID:-}
-herdr=${HERDR_BIN_PATH:-herdr}
+herdr_bin=${HERDR_BIN_PATH:-herdr}
 
 # Bound to a key, so a missing pane id means do nothing rather than guess.
 [ -n "$pane" ] || exit 0
+
+# A remote attach (`herdr --remote box --session box`) runs the server under a
+# named session, whose socket sits in sessions/<name>/ rather than at the
+# default path. The bare CLI still looks at the default socket and answers
+# server_not_running, so every call below fails and the key does nothing.
+# Resolve the session when there is no default server and exactly one candidate;
+# ambiguity means fall through to the default rather than guess a session.
+session=${HERDR_SESSION:-}
+if [ -z "$session" ] && [ ! -S "$HOME/.config/herdr/herdr.sock" ]; then
+	found=0
+	for sock in "$HOME"/.config/herdr/sessions/*/herdr.sock; do
+		[ -S "$sock" ] || continue
+		found=$((found + 1))
+		candidate=$(basename "$(dirname "$sock")")
+	done
+	[ "$found" -eq 1 ] && session=$candidate
+fi
+
+# `command` is required: this function shadows the `herdr` on PATH, which is
+# what $herdr_bin usually is, and calling it plainly would recurse.
+herdr() {
+	if [ -n "$session" ]; then
+		command "$herdr_bin" --session "$session" "$@"
+	else
+		command "$herdr_bin" "$@"
+	fi
+}
 
 # vim-tmux-navigator's process test, applied to argv0 instead of ps comm:
 # view, vim, vi, vimx, nvim, gvim, and the *diff variants, with or without a
 # leading path. `name` is unusable here because it holds the process title,
 # which agents overwrite (Claude Code reports its version string).
-if "$herdr" pane process-info --pane "$pane" 2>/dev/null |
+if herdr pane process-info --pane "$pane" 2>/dev/null |
 	grep -oE '"argv0":"[^"]*"' |
 	sed 's/.*"argv0":"//; s/"$//' |
 	grep -qE '(^|/)g?(view|n?vim?x?)(diff)?$'; then
-	exec "$herdr" pane send-keys "$pane" "$key"
+	herdr pane send-keys "$pane" "$key"
+	exit 0
 fi
 
 # `pane focus` answers "was there a neighbor" in the same round trip that moves
 # focus, so the common case costs two socket calls instead of three.
-if "$herdr" pane focus --direction "$dir" --pane "$pane" 2>/dev/null |
+if herdr pane focus --direction "$dir" --pane "$pane" 2>/dev/null |
 	grep -q '"changed":true'; then
 	exit 0
 fi
 
 # No neighbor that way. Give the key back to whatever is running, which is what
 # keeps ctrl+l clearing the screen in a pane that has nothing to its right.
-exec "$herdr" pane send-keys "$pane" "$key"
+herdr pane send-keys "$pane" "$key"
