@@ -481,6 +481,11 @@ require('lazy').setup({
       require('mason-lspconfig').setup {
         ensure_installed = {}, -- mason-tool-installer handles installs, not mason-lspconfig
         automatic_installation = false,
+        -- stylua ships an `--lsp` mode, so mason-lspconfig starts it as a server.
+        -- conform already runs stylua as a formatter, so the client adds nothing,
+        -- and the Linux build exits 2 on shutdown with "unexpected message during
+        -- shutdown", which surfaces as an error on every Lua buffer.
+        automatic_enable = { exclude = { 'stylua' } },
         handlers = {
           function(server_name)
             local server = servers[server_name] or {}
