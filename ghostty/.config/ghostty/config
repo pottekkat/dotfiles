@@ -25,9 +25,9 @@ background-opacity = 0.90
 # either way; this is for the layout, not the color.
 macos-titlebar-style = tabs
 
-# Left option sends Esc+ for readline and nvim bindings; right option stays
-# normal for characters like #.
-macos-option-as-alt = left
+# macos-option-as-alt is left unset on purpose: it already defaults to true on
+# a U.S. layout, so both option keys send Esc+ for readline and nvim. Setting
+# it to `left` only takes that away from the right one.
 
 # Clear the line, as iTerm2 did. 0x15 is ctrl+u, which zsh binds to
 # kill-whole-line. The old esc:w sent Meta-w (copy-region-as-kill) and did
