@@ -2,6 +2,7 @@ stow atuin
 stow bin
 stow git
 stow gh
+stow ghostty
 stow herdr
 stow kitty
 stow neofetch

@@ -1,0 +1,39 @@
+# Ghostty 1.3.1
+
+# Theme names gained capitals and spaces after this config was first written;
+# the old "catppuccin-macchiato" no longer resolves and Ghostty silently falls
+# back to its built-in colors. `ghostty +list-themes` is the authority.
+theme = Catppuccin Macchiato
+
+font-family = JetBrainsMono Nerd Font
+# Matches the iTerm2 profile (JetBrainsMonoNF-Regular 12). Ghostty defaults to
+# 13, which renders noticeably larger than the terminal this replaces.
+font-size = 12
+
+# Named features merge over the defaults, so only the ssh ones below are
+# actually a change; no-sudo/title/path are spelled out only to make the
+# effective set readable without running `ghostty +show-config`.
+#
+# no-cursor    keep the block cursor below instead of letting the shell swap
+#              shapes per vi mode
+# ssh-env      carry TERM/COLORTERM sensibly across ssh
+# ssh-terminfo install Ghostty's terminfo on remote hosts on first connect.
+#              Without it TERM=xterm-ghostty is unknown on the far end and
+#              keys, colors and screen clears misbehave. The box did not have
+#              this terminfo.
+shell-integration-features = no-cursor,no-sudo,title,path,ssh-env,ssh-terminfo
+
+cursor-style = block
+cursor-style-blink = false
+
+# iTerm2 ran at transparency 0.097, so 0.90 opacity is the equivalent. The
+# previous 0.95 was a guess at that value rather than a reading of it.
+background-opacity = 0.90
+
+# iTerm2 had left option send Esc+ while right option stayed normal, which is
+# what makes alt-based readline and nvim bindings work while leaving the right
+# option free for characters like #.
+macos-option-as-alt = left
+
+# macOS text editing: delete to start of line.
+keybind = cmd+backspace=esc:w
