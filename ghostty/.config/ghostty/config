@@ -3,7 +3,7 @@
 # Theme names gained capitals and spaces after this config was first written;
 # the old "catppuccin-macchiato" no longer resolves and Ghostty silently falls
 # back to its built-in colors. `ghostty +list-themes` is the authority.
-theme = Catppuccin Macchiato
+theme = Catppuccin Mocha
 
 font-family = JetBrainsMono Nerd Font
 # Matches the iTerm2 profile (JetBrainsMonoNF-Regular 12). Ghostty defaults to
@@ -29,6 +29,16 @@ cursor-style-blink = false
 # iTerm2 ran at transparency 0.097, so 0.90 opacity is the equivalent. The
 # previous 0.95 was a guess at that value rather than a reading of it.
 background-opacity = 0.90
+
+# The default, "transparent", uses macOS native window tabs: a full-width,
+# AppKit-drawn strip that cannot be restyled and looks nothing like the compact
+# tabs iTerm2 draws itself. "tabs" is Ghostty's own titlebar with the tab bar
+# built into it, which always matches the terminal background.
+#
+# Caveat from the docs: on macOS 13 and below, saved window state does not
+# restore tabs correctly. This Mac is on macOS 26, so that does not apply.
+# Takes effect on new windows only.
+macos-titlebar-style = tabs
 
 # iTerm2 had left option send Esc+ while right option stayed normal, which is
 # what makes alt-based readline and nvim bindings work while leaving the right
