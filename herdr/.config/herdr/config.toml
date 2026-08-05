@@ -127,13 +127,13 @@ rows = [
 
 # Root for worktree checkouts created by `herdr worktree create` without --path.
 # The template is <directory>/<repo>/<branch-slug>, so branch
-# pottekkat/fix-thing in axionhypothesis lands at
-# ~/Git/worktrees/axionhypothesis/pottekkat-fix-thing.
+# pottekkat/fix-thing in myrepo lands at
+# ~/Git/worktrees/myrepo/pottekkat-fix-thing.
 #
 # The default is ~/.herdr/worktrees, which works but buries checkouts away from
 # the clones. Keeping them under ~/Git groups them without interleaving twenty
-# worktrees among unrelated repos, which is what hand-made ~/Git/axion-wt-* and
-# ~/Git/wt-* directories did.
+# worktrees among unrelated repos, which is what hand-made ~/Git/wt-*
+# directories did.
 #
 # This is only the default for herdr-created worktrees. A plain
 # `git worktree add <path>` still goes wherever you point it.
