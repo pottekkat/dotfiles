@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Attach to the box's herdr session with the flags that keep ctrl+hjkl working.
+#
+# --remote-keybindings defaults to `local`, which means this Mac runs the
+# [[keys.command]] nav script against its OWN socket while holding a pane id
+# that only exists on the box. Every hop misses and the key silently does
+# nothing. `server` hands the binding to the machine that owns the panes.
+#
+# This is not expressible in config.toml: the only key under [remote] is
+# manage_ssh_config, verified against `herdr --default-config` and
+# herdr.dev/docs/config-reference. So the flag has to be passed per attach,
+# which is what this script is for.
+#
+# --session matters too. A named session moves the server socket to
+# sessions/<name>/herdr.sock, and the nav scripts resolve it from there; see
+# ~/.config/herdr/scripts/herdr-nav.
+
+set -euo pipefail
+
+HOST=${BOXHERDR_HOST:-box}
+SESSION=${BOXHERDR_SESSION:-box}
+
+# Extra args pass through, so `boxherdr --handoff` still works.
+exec herdr --remote "$HOST" --session "$SESSION" --remote-keybindings server "$@"
