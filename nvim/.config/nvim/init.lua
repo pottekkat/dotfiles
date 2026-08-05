@@ -112,6 +112,11 @@ vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
 -- Close all buffers except the current one
 vim.keymap.set('n', '<leader>bo', '<cmd>%bd|e#|bd#<CR>', { desc = 'Close all [b]uffers except current ([o]nly)' })
 
+-- An unmapped Meta key in insert mode is split back into <Esc> plus the plain
+-- key, so option+delete did nothing. iTerm2 hid this by rewriting the key into
+-- a bare ctrl+w; Ghostty sends the real sequence, so map it here instead.
+vim.keymap.set('i', '<M-BS>', '<C-w>', { desc = 'Delete previous word' })
+
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
 -- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
