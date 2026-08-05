@@ -8,6 +8,7 @@ stow kitty
 stow neofetch
 stow nvim
 stow p10k
+stow ssh
 stow tmux
 stow tmuxinator
 stow zsh
