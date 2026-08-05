@@ -20,13 +20,16 @@ cursor-style-blink = false
 # Matches iTerm2's transparency of 0.097.
 background-opacity = 0.90
 
-# Native macOS window tabs are drawn by AppKit and cannot be restyled. "tabs"
-# is Ghostty's own tab bar. Applies to new windows only.
+# Puts the tabs in the titlebar row instead of a separate bar below it, which
+# is one row shorter. On macOS 26 the titlebar still renders as system glass
+# either way; this is for the layout, not the color.
 macos-titlebar-style = tabs
 
 # Left option sends Esc+ for readline and nvim bindings; right option stays
 # normal for characters like #.
 macos-option-as-alt = left
 
-# Delete to start of line.
-keybind = cmd+backspace=esc:w
+# Clear the line, as iTerm2 did. 0x15 is ctrl+u, which zsh binds to
+# kill-whole-line. The old esc:w sent Meta-w (copy-region-as-kill) and did
+# nothing.
+keybind = cmd+backspace=text:\x15
