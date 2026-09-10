@@ -1,0 +1,306 @@
+#!/usr/bin/env python3
+"""Stream herdr agent state as one self-contained JSON snapshot per line.
+
+Written for the Hammerspoon menu bar item on the Mac, which runs this over
+SSH and reads stdout line by line.
+
+Why full snapshots instead of transitions
+-----------------------------------------
+`pane.updated` fires on terminal *output*, not on state changes, so a naive
+subscriber sees a dozen identical "working" events per second. The obvious fix
+is to diff against a last-known map and emit transitions -- but then the
+consumer holds a state machine, and a dropped SSH link leaves it permanently
+out of sync with no way to notice.
+
+Emitting a whole snapshot on every real change costs a few hundred bytes and
+removes that entire class of bug: the consumer is stateless, and a reconnect
+resynchronises on the first line. The dedupe still happens here, so the wire
+stays quiet -- it just carries complete state when it does carry something.
+
+Two sockets on purpose
+----------------------
+The subscription connection blocks in a read loop, so `agent.list` gets its own
+short-lived connection each time. A unix-domain connect is microseconds, and it
+avoids interleaving request replies with subscription events on one stream.
+"""
+
+import json
+import os
+import socket
+import sys
+import time
+from pathlib import Path
+
+SESSION = sys.argv[1] if len(sys.argv) > 1 else "box"
+
+# A named session moves the socket under sessions/<name>/; the unnamed default
+# sits at the top level. Try the named path first so `herdr-agent-stream box`
+# never silently attaches to a different server.
+CANDIDATES = [
+    Path.home() / ".config/herdr/sessions" / SESSION / "herdr.sock",
+    Path.home() / ".config/herdr/herdr.sock",
+]
+
+# pane.updated is the workhorse. The create/close/exit events matter because a
+# pane that disappears produces no further updates, so without them a dead
+# agent would sit in the menu forever.
+SUBSCRIPTIONS = [
+    {"type": "pane.updated"},
+    {"type": "pane.created"},
+    {"type": "pane.closed"},
+    {"type": "pane.exited"},
+    {"type": "workspace.renamed"},
+    {"type": "workspace.created"},
+    {"type": "workspace.closed"},
+]
+
+DEBOUNCE = 0.4  # seconds to keep collecting events before rebuilding
+HEARTBEAT = 15.0  # seconds; also refreshes load/memory and keeps SSH warm
+
+
+def sock_path():
+    for p in CANDIDATES:
+        if p.exists():
+            return str(p)
+    raise SystemExit(f"no herdr socket for session {SESSION!r}; tried: {CANDIDATES}")
+
+
+def request(method, params=None, req_id="q"):
+    """One request, one reply, on a throwaway connection."""
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(5)
+    try:
+        s.connect(sock_path())
+        s.sendall((json.dumps({"id": req_id, "method": method, "params": params or {}}) + "\n").encode())
+        buf = b""
+        while b"\n" not in buf:
+            chunk = s.recv(65536)
+            if not chunk:
+                break
+            buf += chunk
+        return json.loads(buf.split(b"\n", 1)[0] or b"{}")
+    finally:
+        s.close()
+
+
+def vitals_darwin():
+    """Same shape as the Linux vitals, via sysctl.
+
+    macOS has no /proc, so this shells out -- but only once per heartbeat, and
+    `sysctl -n` with several keys is a single process for all of them.
+
+    "Available" memory has no direct macOS equivalent. Pages that are free,
+    inactive, or speculative are the ones the kernel can hand out without
+    evicting anything a running app still wants, so that sum is the closest
+    honest analogue to MemAvailable, and it keeps the menu's memory row
+    meaning the same thing on both machines.
+    """
+    import subprocess
+
+    # Flagged so the menu can hold its swap alarm. On Linux, swap in use means
+    # the box is already evicting; on macOS the compressor swaps as a matter of
+    # course and a machine that has been up for weeks sits near full swap while
+    # feeling perfectly fine. Same number, different meaning.
+    out = {"cpus": os.cpu_count() or 1, "darwin": True}
+    try:
+        keys = ["vm.loadavg", "hw.memsize", "hw.pagesize", "kern.boottime"]
+        vals = subprocess.run(
+            ["sysctl", "-n", *keys], capture_output=True, text=True, timeout=3
+        ).stdout.splitlines()
+        load, memsize, pagesize, boottime = vals[0], vals[1], vals[2], vals[3]
+        out["load1"] = float(load.strip("{} ").split()[0])
+        out["mem_total_mb"] = int(memsize) // (1024 * 1024)
+        page = int(pagesize)
+        # kern.boottime prints `{ sec = 1785818871, usec = 0 } ...`
+        sec = int(boottime.split("sec = ")[1].split(",")[0])
+        out["uptime_s"] = int(time.time()) - sec
+
+        vm = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=3).stdout
+        pages = {}
+        for line in vm.splitlines():
+            k, _, v = line.partition(":")
+            v = v.strip().rstrip(".")
+            if v.isdigit():
+                pages[k.strip()] = int(v)
+        avail = (
+            pages.get("Pages free", 0)
+            + pages.get("Pages inactive", 0)
+            + pages.get("Pages speculative", 0)
+        )
+        out["mem_avail_mb"] = avail * page // (1024 * 1024)
+
+        swap = subprocess.run(
+            ["sysctl", "-n", "vm.swapusage"], capture_output=True, text=True, timeout=3
+        ).stdout
+        # `total = 3072.00M  used = 1234.50M  free = ...`
+        parts = dict(
+            zip(
+                ["total", "used", "free"],
+                [float(p.rstrip("M")) for p in swap.replace("=", " ").split() if p.endswith("M")],
+            )
+        )
+        out["swap_total_mb"] = int(parts.get("total", 0))
+        out["swap_used_mb"] = int(parts.get("used", 0))
+    except Exception:
+        pass
+    return out
+
+
+def vitals():
+    """Box health, straight from /proc -- no subprocesses in the hot path."""
+    if sys.platform == "darwin":
+        return vitals_darwin()
+    out = {}
+    try:
+        with open("/proc/loadavg") as f:
+            out["load1"] = float(f.read().split()[0])
+    except Exception:
+        pass
+    try:
+        mem = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, _, v = line.partition(":")
+                mem[k] = int(v.split()[0])  # kB
+        # MemAvailable is the honest number: MemFree ignores reclaimable cache
+        # and reads near-zero on a healthy box, which would look like an alarm.
+        out["mem_total_mb"] = mem["MemTotal"] // 1024
+        out["mem_avail_mb"] = mem["MemAvailable"] // 1024
+        swap_total = mem.get("SwapTotal", 0)
+        out["swap_total_mb"] = swap_total // 1024
+        out["swap_used_mb"] = (swap_total - mem.get("SwapFree", 0)) // 1024
+    except Exception:
+        pass
+    try:
+        with open("/proc/uptime") as f:
+            out["uptime_s"] = int(float(f.read().split()[0]))
+    except Exception:
+        pass
+    out["cpus"] = os.cpu_count() or 1
+    return out
+
+
+def workspace_names():
+    """workspace_id -> display name, so the menu can group by something human."""
+    try:
+        reply = request("workspace.list", req_id="ws")
+        names = {}
+        for w in reply.get("result", {}).get("workspaces", []):
+            wid = w.get("workspace_id") or w.get("id")
+            if wid:
+                names[wid] = w.get("name") or w.get("title") or wid
+        return names
+    except Exception:
+        return {}
+
+
+def agents():
+    reply = request("agent.list", req_id="al")
+    rows = []
+    for a in reply.get("result", {}).get("agents", []):
+        rows.append(
+            {
+                "name": a.get("name") or a.get("terminal_title_stripped") or a.get("pane_id"),
+                "status": a.get("agent_status") or "unknown",
+                "agent": a.get("agent"),
+                "pane": a.get("pane_id"),
+                "workspace": a.get("workspace_id"),
+                "cwd": a.get("cwd"),
+                "focused": bool(a.get("focused")),
+            }
+        )
+    # Stable order: workspace, then pane. Otherwise the menu reshuffles between
+    # refreshes and the eye cannot track a row.
+    rows.sort(key=lambda r: (r["workspace"] or "", r["pane"] or ""))
+    return rows
+
+
+def snapshot():
+    rows = agents()
+    return {
+        "t": "snap",
+        "ts": time.time(),
+        "session": SESSION,
+        "agents": rows,
+        "workspaces": workspace_names(),
+        "box": vitals(),
+    }
+
+
+def identity(snap):
+    """What counts as a real change. Deliberately excludes vitals and ts --
+    load average moves constantly and would defeat the dedupe entirely."""
+    return json.dumps(
+        [(a["name"], a["status"], a["pane"], a["workspace"], a["focused"]) for a in snap["agents"]],
+        sort_keys=True,
+    )
+
+
+def emit(snap):
+    sys.stdout.write(json.dumps(snap, separators=(",", ":")) + "\n")
+    sys.stdout.flush()
+
+
+def main():
+    sub = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sub.connect(sock_path())
+    sub.sendall(
+        (json.dumps({"id": "sub", "method": "events.subscribe", "params": {"subscriptions": SUBSCRIPTIONS}}) + "\n").encode()
+    )
+
+    last = snapshot()
+    last_id = identity(last)
+    emit(last)
+    last_beat = time.time()
+
+    pending = None  # deadline for a debounced rebuild
+    buf = b""
+    sub.settimeout(0.25)
+
+    while True:
+        try:
+            chunk = sub.recv(65536)
+            if not chunk:
+                raise ConnectionError("herdr closed the event socket")
+            buf += chunk
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                if line.strip():
+                    # The payload is irrelevant -- any of these events means
+                    # "state may have moved", and agent.list is the source of
+                    # truth. This keeps the script immune to payload changes.
+                    pending = time.time() + DEBOUNCE
+        except socket.timeout:
+            pass
+
+        now = time.time()
+        due_change = pending is not None and now >= pending
+        due_beat = now - last_beat >= HEARTBEAT
+        if not (due_change or due_beat):
+            continue
+
+        pending = None
+        try:
+            snap = snapshot()
+        except Exception as e:
+            print(json.dumps({"t": "error", "ts": now, "msg": str(e)}), flush=True)
+            time.sleep(1)
+            continue
+
+        ident = identity(snap)
+        if due_change and ident != last_id:
+            emit(snap)
+            last_id, last_beat = ident, now
+        elif due_beat:
+            emit(snap)
+            last_id, last_beat = ident, now
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        print(json.dumps({"t": "fatal", "msg": str(e)}), flush=True)
+        sys.exit(1)
