@@ -2,9 +2,9 @@
 # Forward the box's dev servers to localhost so they open in a Mac browser.
 #
 # The box runs the stack; nothing is exposed to the tailnet because Vite and the
-# Go server bind 127.0.0.1. Forwarding keeps the browser on localhost, which
+# Go servers bind loopback. Forwarding keeps the browser on localhost, which
 # matters: Vite rejects unexpected Host headers, and the Firebase auth config
-# and .env fallbacks are all written for localhost:3000.
+# and .env fallbacks are all written for localhost.
 #
 # Uses an SSH control socket rather than a background PID, so stopping is
 # `-O exit` against the socket instead of pkill on a command-line pattern.
@@ -15,23 +15,62 @@ set -euo pipefail
 HOST=${BOXTUN_HOST:-box}
 SOCK="$HOME/.ssh/boxtun-$HOST.sock"
 
-# 3000 frontend (Vite), 3001 backend GraphQL, 8080 Temporal UI.
-# The worker has no UI of its own; you watch it through Temporal.
-# Override for a subset: BOXTUN_PORTS="3000" boxtun up
-read -r -a PORTS <<<"${BOXTUN_PORTS:-3000 3001 8080}"
+# Projects run side by side and collide unless they are kept apart:
+#   axionhypothesis         3000 web, 3001 GraphQL, 8081 worker health, 8080 temporal
+#   axion-auto-loop         3010 web, 8082 API,                         8234 temporal
+#   aal worktree frontends  3002+ web, 8083+ API (ui-walkthrough and friends)
+#   freysa.dev              5173 web, 34222 API
+# A worktree frontend needs its API port forwarded too: the browser calls the
+# API origin directly, so it resolves against the *Mac's* localhost.
+# axion-auto-loop was moved off 3001/8081 on 2026-08-10 to end that collision;
+# its ports live in the gitignored .env.local files, not in tracked config.
+#
+# freysa.dev looks like it needs only 5173, because vite.config.ts proxies /api
+# and /version to localhost:34222. That proxy is a red herring: fe/src/wagmi.ts
+# sets API_BASE to same-origin ("") only under `--mode design`. Under a plain
+# `vite dev` it is the literal string http://localhost:34222, so the browser
+# names the backend itself and 34222 has to be forwarded too. The websocket
+# endpoints (/api/agents/.../chat/stream, /api/ssh/...) ride the same origin.
+read -r -a PORTS <<<"${BOXTUN_PORTS:-3000 3001 3002 3010 5173 8080 8081 8082 8083 8234 34222}"
+
+# ssh resolves the forward destination on the *remote* side, and the box's
+# /etc/hosts maps `localhost` to ::1 only. That silently breaks any service
+# bound to IPv4 alone, so name the family per port instead of guessing.
+#
+# `vite dev` binds [::1] only. `vite dev --host 127.0.0.1` binds IPv4 only, and
+# docker publishes on 0.0.0.0, so both of those want 127.0.0.1. A service bound
+# to `*` answers on either, which makes 127.0.0.1 the right default and leaves
+# only the bare-`vite dev` ports to name here.
+#
+# Adding a worktree frontend: append its port to BOXTUN_PORTS and, if it was
+# started without --host, to BOXTUN_V6_PORTS. `ss -ltnp` on the box shows which.
+read -r -a V6_PORTS <<<"${BOXTUN_V6_PORTS:-3002 3010 5173}"
+
+addr_for() {
+  local p
+  for p in "${V6_PORTS[@]}"; do
+    if [ "$p" = "$1" ]; then
+      echo "[::1]"
+      return
+    fi
+  done
+  echo "127.0.0.1"
+}
 
 running() { ssh -S "$SOCK" -O check "$HOST" >/dev/null 2>&1; }
 
 usage() {
   cat <<EOF
-usage: boxtun [up|down|status|restart]
+usage: boxtun [up|down|status|restart|ensure]
 
   up       open forwards for: ${PORTS[*]}
   down     close them
   status   show socket state and which ports answer
   restart  down then up
+  ensure   bring the tunnel up only if it is not already (for launchd)
 
-env: BOXTUN_HOST (default: box), BOXTUN_PORTS (default: 3000 3001 8080)
+env: BOXTUN_HOST (default: box), BOXTUN_PORTS (default: ${PORTS[*]})
+     BOXTUN_V6_PORTS (vite dev ports, bound [::1] only; default: ${V6_PORTS[*]})
 EOF
 }
 
@@ -39,6 +78,12 @@ up() {
   if running; then
     echo "already up"
     return 0
+  fi
+
+  # A dead master leaves the socket file behind. -O check fails on it, but ssh
+  # then refuses to bind a new master at the same path, so clear it first.
+  if [ -S "$SOCK" ]; then
+    rm -f "$SOCK"
   fi
 
   # Pre-flight rather than trusting ExitOnForwardFailure: with -f -M, ssh prints
@@ -58,9 +103,19 @@ up() {
   fi
 
   local fwd=()
-  for p in "${PORTS[@]}"; do fwd+=(-L "$p:localhost:$p"); done
+  for p in "${PORTS[@]}"; do fwd+=(-L "$p:$(addr_for "$p"):$p"); done
 
-  ssh -f -N -M -S "$SOCK" -o ExitOnForwardFailure=yes "${fwd[@]}" "$HOST"
+  # ServerAliveInterval is what makes the master notice a sleep-killed link
+  # instead of hanging on a half-open socket until a forward is used. It does
+  # not keep the tunnel alive across sleep -- nothing can -- it just guarantees
+  # the master exits promptly so `ensure` can rebuild it.
+  ssh -f -N -M -S "$SOCK" \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=15 \
+    -o ServerAliveCountMax=3 \
+    -o TCPKeepAlive=yes \
+    "${fwd[@]}" "$HOST"
+
   if running; then
     echo "up -> ${PORTS[*]}"
   else
@@ -76,6 +131,15 @@ down() {
   else
     echo "not running"
   fi
+}
+
+# Idempotent and quiet when there is nothing to do, so launchd can call it on a
+# short interval without filling the log.
+ensure() {
+  if running; then
+    return 0
+  fi
+  up
 }
 
 status() {
@@ -101,6 +165,7 @@ status() {
 case "${1:-status}" in
   up | start) up ;;
   down | stop) down ;;
+  ensure) ensure ;;
   status) status ;;
   restart)
     down
