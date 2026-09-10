@@ -3,6 +3,7 @@
 # Theme names gained capitals and spaces; the old "catppuccin-macchiato" now
 # fails silently. `ghostty +list-themes` is the authority.
 theme = Catppuccin Mocha
+macos-icon = blueprint
 
 # Fonts
 font-family = JetBrainsMono Nerd Font
