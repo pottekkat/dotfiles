@@ -342,11 +342,23 @@ require('lazy').setup({
         group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
         callback = function(event)
           -- Detach LSP from non-file buffers (e.g. fugitive://, gitsigns://)
+          --
+          -- Double-scheduled on purpose. After firing LspAttach, Neovim itself
+          -- schedules vim.lsp.semantic_tokens.start() for the buffer
+          -- (runtime/lua/vim/lsp/client.lua). A callback scheduled from in here
+          -- is queued first, so a single vim.schedule detaches before that runs,
+          -- and semantic tokens then warn about the buffer they were queued for:
+          -- "[LSP] Client with id 1 not attached to buffer 3". Yielding twice
+          -- puts the detach after it, so the two stop racing.
           local bufname = vim.api.nvim_buf_get_name(event.buf)
           if bufname:match '^%a+://' then
             local client_id = event.data.client_id
             vim.schedule(function()
-              vim.lsp.buf_detach_client(event.buf, client_id)
+              vim.schedule(function()
+                if vim.api.nvim_buf_is_valid(event.buf) and vim.lsp.buf_is_attached(event.buf, client_id) then
+                  vim.lsp.buf_detach_client(event.buf, client_id)
+                end
+              end)
             end)
             return
           end
