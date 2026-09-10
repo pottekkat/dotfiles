@@ -117,6 +117,14 @@ vim.keymap.set('n', '<leader>bo', '<cmd>%bd|e#|bd#<CR>', { desc = 'Close all [b]
 -- a bare ctrl+w; Ghostty sends the real sequence, so map it here instead.
 vim.keymap.set('i', '<M-BS>', '<C-w>', { desc = 'Delete previous word' })
 
+-- Column guide at 80. Window-local (opt_local), so toggling it in one split
+-- leaves the others alone. `vim.wo.colorcolumn` is the current window's value,
+-- which is what makes the read-then-flip work per window rather than globally.
+-- <leader>tc is already TSContext toggle, hence [L]ine.
+vim.keymap.set('n', '<leader>tl', function()
+  vim.opt_local.colorcolumn = vim.wo.colorcolumn == '' and '80' or ''
+end, { desc = '[T]oggle 80-column [L]ine' })
+
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
 -- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
@@ -467,6 +475,20 @@ require('lazy').setup({
           end,
         },
       }
+
+      -- Neovim has vim.diagnostic.enable() but ships no keymap for it, and that
+      -- function is all-or-nothing: it also drops the signs, the underline, and
+      -- the quickfix list. The noise is the inline text alone, so toggle just
+      -- that and stash the configured table to restore it -- `virtual_text =
+      -- true` would come back as the unformatted default.
+      local virt_text_opts = vim.diagnostic.config().virtual_text
+      vim.keymap.set('n', '<leader>td', function()
+        if vim.diagnostic.config().virtual_text == false then
+          vim.diagnostic.config { virtual_text = virt_text_opts }
+        else
+          vim.diagnostic.config { virtual_text = false }
+        end
+      end, { desc = '[T]oggle inline [D]iagnostics' })
 
       -- LSP servers and clients are able to communicate to each other what features they support.
       --  By default, Neovim doesn't support everything that is in the LSP specification.
