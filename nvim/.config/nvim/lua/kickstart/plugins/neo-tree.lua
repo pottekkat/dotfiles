@@ -14,6 +14,11 @@ return {
     { '\\', ':Neotree reveal right<CR>', desc = 'NeoTree reveal', silent = true },
   },
   opts = {
+    -- Applies to every source, so netrw hijacking (`nvim <dir>`, which opens the
+    -- tree before `\` is ever pressed) lands on the same side as the keymap.
+    window = {
+      position = 'right',
+    },
     filesystem = {
       window = {
         mappings = {
