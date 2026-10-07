@@ -10,8 +10,9 @@ name = "catppuccin"
 # as the background, so the line is invisible until navigate mode turns it the
 # accent color. surface1 is light enough to see and still dark enough for the
 # few places surface_dim is used as a panel background.
-[theme.custom]
-surface_dim = "#45475a"
+# TEMP-THEME-OVERRIDE-DISABLED - restore by uncommenting the two lines below.
+# [theme.custom]
+# surface_dim = "#45475a"
 
 # herdr ships with notifications off, so nothing fired until this block existed.
 # "herdr" draws the toast inside the TUI, which is what makes prefix+o work:
@@ -120,9 +121,13 @@ description = "focus pane right (nvim-aware)"
 # least useful of the three, but overlay0 was too close to the background to
 # read at all.
 [ui.sidebar.agents]
+# TEMP-THEME-OVERRIDE-DISABLED - restore by swapping the two bare-token rows
+# below for these styled rows, which carry the catppuccin mocha hex values:
+#   ["state_icon", "workspace", { token = "tab", fg = "#a6adc8", dim = false }],
+#   [{ token = "agent", fg = "#89b4fa", bold = true, dim = false }],
 rows = [
-  ["state_icon", "workspace", { token = "tab", fg = "#a6adc8", dim = false }],
-  [{ token = "agent", fg = "#89b4fa", bold = true, dim = false }],
+  ["state_icon", "workspace", "tab"],
+  ["agent"],
 ]
 
 # Root for worktree checkouts created by `herdr worktree create` without --path.
